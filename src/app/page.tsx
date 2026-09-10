@@ -1,65 +1,75 @@
-import Image from "next/image";
+import { getVisiblePageSections } from "@/lib/actions/page-builder";
+import { getFeaturedProducts, getProducts } from "@/lib/actions/products";
+import { getLatticeStyles } from "@/lib/actions/collections";
+import Header from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
+import HeroSection from "@/components/landing/hero-section";
+import HeritageSection from "@/components/landing/heritage-section";
+import LatticeShowcase from "@/components/landing/lattice-showcase";
+import CraftsmanshipSection from "@/components/landing/craftsmanship-section";
+import MaterialsSection from "@/components/landing/materials-section";
+import ProductGridSection from "@/components/landing/product-grid-section";
+import ConsultationCTA from "@/components/landing/consultation-cta";
+import type { PageSection } from "@/types/database";
 
-export default function Home() {
+const SECTION_COMPONENTS = {
+  hero: HeroSection,
+  heritage: HeritageSection,
+  lattice_showcase: LatticeShowcase,
+  craftsmanship: CraftsmanshipSection,
+  materials: MaterialsSection,
+  product_grid: ProductGridSection,
+  cta: ConsultationCTA,
+} as const;
+
+export default async function Home() {
+  const [sections, latticeStyles] = await Promise.all([
+    getVisiblePageSections("homepage"),
+    getLatticeStyles(),
+  ]);
+
+  const productGridSection = sections.find((s) => s.section_type === "product_grid");
+  const featuredOnly = (productGridSection?.content as Record<string, unknown>)?.featured_only !== false;
+  const products =
+    productGridSection && featuredOnly
+      ? await getFeaturedProducts()
+      : productGridSection
+        ? await getProducts({ isActive: true })
+        : [];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <>
+      <Header />
+      <main className="pt-14 lg:pt-16">
+        {sections.map((section: PageSection) => {
+          const Component = SECTION_COMPONENTS[section.section_type as keyof typeof SECTION_COMPONENTS];
+          if (!Component) return null;
+
+          const content = section.content ?? {};
+          const key = section.id;
+
+          if (section.section_type === "lattice_showcase") {
+            return (
+              <Component
+                key={key}
+                content={content}
+                latticeStyles={latticeStyles ?? []}
+              />
+            );
+          }
+          if (section.section_type === "product_grid") {
+            return (
+              <Component
+                key={key}
+                content={content}
+                products={products}
+              />
+            );
+          }
+          return <Component key={key} content={content} />;
+        })}
       </main>
-    </div>
+      <Footer />
+    </>
   );
 }
